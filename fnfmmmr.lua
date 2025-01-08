@@ -1,6 +1,30 @@
-local UwUware = loadstring(game:HttpGet "https://raw.githubusercontent.com/OPENCUP/random-texts/main/ui.lua")()
+-- main.lua
+-- Script para "Monday Morning Misery" en Roblox
+-- Licencia: Apache-2.0 License
+
+--[[
+    Copyright 2025 Nombre del autor
+
+    Licenciado bajo la Licencia Apache, Versión 2.0 (la "Licencia");
+    no puedes usar este archivo excepto en cumplimiento con la Licencia.
+    Puedes obtener una copia de la Licencia en:
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    A menos que lo exija la ley aplicable o se acuerde por escrito, el software
+    distribuido bajo la Licencia se distribuye "TAL CUAL",
+    SIN GARANTÍAS NI CONDICIONES DE NINGÚN TIPO, ya sea explícitas o implícitas.
+    Consulta la Licencia para el lenguaje específico que rige los permisos y
+    limitaciones bajo la Licencia.
+]]
+
+-- Cargar la biblioteca desde GitHub
+local UwUware = loadstring(game:HttpGet("https://raw.githubusercontent.com/OPENCUP/random-texts/main/ui.lua"))()
+
+-- Crear la ventana principal
 local window = UwUware:CreateWindow("Monday Morning Misery")
 
+-- Configuración de opciones de usuario
 window:AddToggle({
     text = "Toggle Autoplayer",
     flag = "IsAnimeFan",
@@ -19,7 +43,6 @@ window:AddButton({
     text = "Unload Script",
     callback = function()
         clear()
-
         UwUware.base:Destroy()
         UwUware = nil
     end
@@ -28,23 +51,22 @@ window:AddButton({
 window:AddButton({
     text = "Copy Discord Invite",
     callback = function()
-	local code = game:HttpGet "https://stavratum.github.io/invite"
-	local invite = "discord.gg" .. "/" .. code
-
+        local code = game:HttpGet("https://stavratum.github.io/invite")
+        local invite = "discord.gg/" .. code
         setclipboard(invite)
     end
 })
 
-if not game:IsLoaded() then game.Loaded:Wait() end
+-- Servicios principales de Roblox
+local replicatedstorage = game:GetService("ReplicatedStorage")
+local manager = game:GetService("VirtualInputManager")
+local runservice = game:GetService("RunService")
+local players = game:GetService("Players")
 
-local replicatedstorage = game:GetService "ReplicatedStorage"
-local manager = game:GetService "VirtualInputManager"
-local runservice = game:GetService "RunService"
-local players = game:GetService "Players"
-
+-- Variables y configuraciones
 local options = getrenv()._G.PlayerData.Options
 local flags = UwUware.flags
-local connections = { }
+local connections = {}
 local codes = {
     [9] = {"Left", "Down", "Up", "Right", "Space", "Left2", "Down2", "Up2", "Right2"},
     [8] = {"Left", "Down", "Up", "Right", "Left2", "Down2", "Up2", "Right2"},
@@ -54,10 +76,11 @@ local codes = {
     [4] = {"Left", "Down", "Up", "Right"}
 }
 
+-- Función principal
 function main()
     local match = getMatch()
     if not match then return end
-    
+
     repeat wait(1) until rawget(match, 'Songs')
 
     local side = getSide(match.PlayerType)
@@ -69,95 +92,63 @@ function main()
     local notes = sideFrame.Notes
 
     local maxArrows = match.MaxArrows
-    local codes = codes [ maxArrows ]
     local controls = maxArrows < 5 and options
-        or options.ExtraKeySettings [ tostring(maxArrows) ]
+        or options.ExtraKeySettings[tostring(maxArrows)]
 
     container = sort(container)
     longNotes = sort(longNotes)
     notes = sort(notes)
-	
+
     for index, holder in ipairs(notes) do
-        local offset = 10 * maxArrows
-
-        local name = codes[index]
-        local longNote = longNotes[index]
-        local fakeNote = container[index]
+        local name = codes[maxArrows][index]
         local keycode = controls[name .. "Key"]
 
-        table.insert(connections,
-            holder.ChildAdded:Connect(function(note)
-                while (fakeNote.AbsolutePosition - note.AbsolutePosition).Magnitude >= offset do
-                    runservice.RenderStepped:Wait()
-                end
-                
-                if not flags.IsAnimeFan then return end
-                manager:SendKeyEvent(true, keycode, false, nil)
-
-                if #longNote:GetChildren() == 0 then
-                    manager:SendKeyEvent(false, keycode, false, nil)
-                end
-            end)
-        )
+        table.insert(connections, holder.ChildAdded:Connect(function(note)
+            if not flags.IsAnimeFan then return end
+            while (note.AbsolutePosition - holder.AbsolutePosition).Magnitude >= 10 * maxArrows do
+                runservice.RenderStepped:Wait()
+            end
+            manager:SendKeyEvent(true, keycode, false, nil)
+        end))
     end
-	
-    for index, holder in ipairs(longNotes) do
-        local name = codes[index]
-        local keycode = controls[name .. "Key"]
-
-        table.insert(connections,
-            holder.ChildRemoved:Connect(function()
-                if not flags.IsAnimeFan then return end
-                manager:SendKeyEvent(false, keycode, false, nil)
-            end)
-        )
-    end
-
-    return match
 end
 
+-- Ordenar elementos
 function sort(instance)
     local children = instance:GetChildren()
-    
     table.sort(children, function(a, b)
         return a.AbsolutePosition.X < b.AbsolutePosition.X
     end)
-    
     return children
 end
 
+-- Obtener lado del jugador
 function getSide(playerType)
-    local map = {"Left", "Right"}
-    return map[playerType]
+    return (playerType == 1) and "Left" or "Right"
 end
 
+-- Buscar partida actual
 function getMatch()
-    for i,v in ipairs(getgc(true)) do
-        if type(v) == 'table' and rawget(v, 'MatchFolder') then
+    for _,v in ipairs(getgc(true)) do
+        if type(v) == "table" and rawget(v, "MatchFolder") then
             return v
         end
     end
 end
 
+-- Limpiar conexiones
 function clear()
-    for i,v in ipairs(connections) do
+    for _,v in ipairs(connections) do
         v:Disconnect()
     end
-
     table.clear(connections)
 end
 
---
-
+-- Iniciar GUI
 UwUware:Init()
 
-while true do wait(1)
-    if UwUware == nil then break else
-        clear()
-    end
-
-    local match = main()
-    if not match then continue end
-
-    match.MatchFolder.Destroying:Wait()
+-- Monitorizar partida
+while wait(1) do
+    clear()
+    main()
 end
